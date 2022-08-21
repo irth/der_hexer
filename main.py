@@ -1,12 +1,14 @@
 from dataclasses import dataclass
+from tkinter import W
 from typing import List, Optional
 from math import sin, cos, pi
 
 HEX_RADIUS: float = 50
 
-HEX_WIDTH: float = 2 * HEX_RADIUS
-HEX_HEIGHT: float = 2 * HEX_RADIUS * sin(pi/3)
-HEX_SIDE: float = 2 * HEX_RADIUS * cos(pi/3)
+HEX_WIDTH: float = 2 * HEX_RADIUS * sin(pi/6)
+HEX_HEIGHT: float = 2 * HEX_RADIUS
+HEX_SIDE: float = 2 * HEX_RADIUS * sin(pi/6)
+EVEN_ROW_OFFSET: float = HEX_WIDTH / 2
 
 
 @dataclass
@@ -18,6 +20,12 @@ class Point:
         return Point(
             x=self.x - point.x,
             y=self.y - point.y,
+        )
+
+    def __add__(self, point: 'Point') -> 'Point':
+        return Point(
+            x=self.x + point.x,
+            y=self.y + point.y,
         )
 
     def __abs__(self) -> 'Point':
@@ -35,10 +43,11 @@ class HexCoords:
     @property
     def center(self) -> Point:
         even_row = self.row % 2 == 0
-        x_offset = 0 if even_row else HEX_WIDTH / 2
+        x_offset = 0 if even_row else EVEN_ROW_OFFSET
 
-        x = x_offset + self.col * HEX_WIDTH
+        x = x_offset + self.column * HEX_WIDTH
         y = self.row * (HEX_HEIGHT - HEX_SIDE)
+        return Point(x, y)
 
     def in_bounds(self, point: Point) -> bool:
         center = self.center
@@ -56,11 +65,11 @@ class HexCoords:
 
     @property
     def polygon(self) -> List[Point]:
-        c = HEX_RADIUS * cos(pi/3)
-        s = HEX_RADIUS * sin(pi/3)
+        c = HEX_RADIUS * cos(pi/6)
+        s = HEX_RADIUS * sin(pi/6)
 
-        A = Point(c, s)
-        B = Point(HEX_RADIUS, 0)
+        A = Point(0, HEX_RADIUS)
+        B = Point(c, s)
         C = Point(c, -s)
         D = -A
         E = -B
