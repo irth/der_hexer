@@ -1,3 +1,4 @@
+import itertools
 import random
 from dataclasses import dataclass
 from math import cos, pi, sin
@@ -30,6 +31,9 @@ class Point:
         # does weirdness of python's round matter?
         return (round(self.x), round(self.y))
 
+    def __str__(self) -> str:
+        return f'point<{self.x},{self.y}>'
+
     def __sub__(self, point: 'Point') -> 'Point':
         return Point(
             x=self.x - point.x,
@@ -54,11 +58,20 @@ class Point:
     def __neg__(self) -> 'Point':
         return Point(x=-self.x, y=-self.y)
 
+    def __eq__(self, point: 'Point') -> bool:
+        # accounting for floating point errors
+        precision = 7
+        threshold = pow(10, -precision)
+        return abs(point.x - self.x) < threshold and abs(point.y - self.y) < threshold
+
 
 @dataclass
 class HexCoords:
     row: int
     column: int
+
+    def __str__(self) -> str:
+        return f'hex<row={self.row},col={self.column}>'
 
     @property
     def center(self) -> Point:
@@ -90,12 +103,33 @@ class HexCoords:
         return [center + i for i in [A, B, C, D, E, F]]
 
 
-@dataclass
+class InvalidRiverException(Exception):
+    pass
+
+
 class River:
     # are rivers directional? if we want the water to flow then yes, otherwise -
     # normalization of start/end order perhaps is needed
-    start: HexCoords
-    end: HexCoords
+    between: Tuple[HexCoords, HexCoords]
+    points: List[Point]
+    color: int
+
+    def __init__(self, between: Tuple[HexCoords, HexCoords], color: int):
+        if len(between) != 2:
+            raise InvalidRiverException(
+                f'A river is defined by 2 hexagons. {len(between)} were given instead.')
+        self.between = between
+        self.color = color
+
+        common = list()
+        for a, b in itertools.product(between[0].polygon, between[1].polygon):
+            if a == b and a not in common:
+                common.append(a)
+        if len(common) != 2:
+            raise InvalidRiverException(
+                f'Hexes {between[0]} and {between[1]} do not have a common edge.')
+
+        self.points = list(common)
 
 
 @dataclass
@@ -142,7 +176,7 @@ class Map:
     def __setitem__(self, coords: HexCoords, value: int):
         self.hexes[coords.row][coords.column] = value
 
-    def render(self, border=4, road_width=8, margin=10, supersample=4):
+    def render(self, border=4, road_width=8, river_width=6, margin=10, supersample=4):
         margin = Point(margin + border, margin + border)
         size = (2 * margin + self.image_size)
         im = Image.new(
@@ -161,32 +195,39 @@ class Map:
                 draw.polygon([(supersample * (margin + p)).tuple for p in coords.polygon],
                              fill=color, outline="black", width=(supersample * border) // 2)
 
+        for river in self.rivers:
+            color = darken(COLORS[river.color], 0.3)
+            print(color)
+            self._line(draw, river.points[0], river.points[1],
+                       river_width, river_width, color, supersample, margin)
+
         for road in self.roads:
-            start = (supersample * (margin + road.start.center)).integer_tuple
-            end = (supersample * (margin + road.end.center)).integer_tuple
-
             color = darken(COLORS[road.color], 0.5)
-
-            draw.line([start, end], fill=color, width=supersample * road_width)
-            draw.ellipse(
-                [
-                    start[0] - supersample * road_width,
-                    start[1] - supersample * road_width,
-                    start[0] + supersample * road_width,
-                    start[1] + supersample * road_width,
-                ],
-                fill=color)
-            draw.ellipse(
-                [
-                    end[0] - supersample * road_width,
-                    end[1] - supersample * road_width,
-                    end[0] + supersample * road_width,
-                    end[1] + supersample * road_width,
-                ],
-                fill=color)
+            self._line(draw, road.start.center, road.end.center, road_width,
+                       road_width, color, supersample, margin)
 
         resized = im.resize(size.integer_tuple, Image.ANTIALIAS)
         return resized
+
+    def _circle(self, draw: ImageDraw.Draw, center: Tuple[int, int], radius: int, fill, supersample: int):
+        draw.ellipse(
+            [
+                center[0] - supersample * radius,
+                center[1] - supersample * radius,
+                center[0] + supersample * radius,
+                center[1] + supersample * radius,
+            ],
+            fill=fill)
+
+    def _line(self, draw: ImageDraw.Draw, start: Point, end: Point, width: int, radius: int, fill, supersample: int, margin: Point):
+        start = (supersample * (margin + start)).integer_tuple
+        end = (supersample * (margin + end)).integer_tuple
+        print(fill)
+        draw.line([start, end], fill=fill, width=supersample * width)
+        self._circle(draw, start, radius=radius,
+                     fill=fill, supersample=supersample)
+        self._circle(draw, end, radius=radius, fill=fill,
+                     supersample=supersample)
 
 
 if __name__ == '__main__':
@@ -201,6 +242,9 @@ if __name__ == '__main__':
     m.roads.append(road1)
     road2 = Road(HexCoords(2, 1), HexCoords(2, 2), color=2)
     m.roads.append(road2)
+
+    river1 = River((HexCoords(1, 1), HexCoords(2, 1)), color=1)
+    m.rivers.append(river1)
 
     image = m.render()
     image.show()
