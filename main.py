@@ -1,7 +1,9 @@
+import random
 from dataclasses import dataclass
+from math import cos, pi, sin
 from tkinter import W
 from typing import List, Optional, Tuple, Union
-from math import sin, cos, pi
+
 from PIL import Image, ImageDraw
 
 HEX_RADIUS: float = 50
@@ -104,8 +106,12 @@ class Road:
 
 
 COLORS: List[str] = [
+    'white',
     'red',
-    'blue'
+    'blue',
+    'green',
+    'orange',
+    'yellow'
 ]
 
 
@@ -127,7 +133,7 @@ class Map:
     def __setitem__(self, coords: HexCoords, value: int):
         self.hexes[coords.row][coords.column] = value
 
-    def draw(self, border=4, margin=10, supersample=4):
+    def render(self, border=4, margin=10, supersample=4):
         margin = Point(margin + border, margin + border)
         size = (2 * margin + self.image_size)
         im = Image.new(
@@ -136,8 +142,6 @@ class Map:
             color="black"
         )
         draw = ImageDraw.Draw(im, "RGB")
-
-        self[HexCoords(row=0, column=0)] = 1
 
         for row in range(self.rows):
             for column in range(self.columns):
@@ -148,9 +152,17 @@ class Map:
                 draw.polygon([(supersample * (margin + p)).tuple for p in coords.polygon],
                              fill=color, outline="black", width=(supersample * border) // 2)
         resized = im.resize(size.integer_tuple, Image.ANTIALIAS)
-        resized.show()
+        return resized
 
 
 if __name__ == '__main__':
-    m = Map(5, 5)
-    m.draw()
+    m = Map(10, 10)
+    for _ in range(5):
+        row = random.randrange(0, 10)
+        col = random.randrange(0, 10)
+        color = random.randrange(len(COLORS) - 1) + 1
+        m[HexCoords(row, col)] = color
+    image = m.render()
+    image.show()
+    # or
+    image.save("map.png")
