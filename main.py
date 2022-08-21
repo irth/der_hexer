@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 from typing import List, Optional
+from math import sin, cos, pi
 
-HEX_WIDTH: int = 104
-HEX_HEIGHT: int = 120
-HEX_SIDE: int = 30
-HEX_CENTER = HEX_WIDTH - 2 * HEX_SIDE
+HEX_RADIUS: float = 50
+
+HEX_WIDTH: float = 2 * HEX_RADIUS
+HEX_HEIGHT: float = 2 * HEX_RADIUS * sin(pi/3)
+HEX_SIDE: float = 2 * HEX_RADIUS * cos(pi/3)
 
 
 @dataclass
@@ -54,7 +56,18 @@ class HexCoords:
 
     @property
     def polygon(self) -> List[Point]:
-        pass
+        c = HEX_RADIUS * cos(pi/3)
+        s = HEX_RADIUS * sin(pi/3)
+
+        A = Point(c, s)
+        B = Point(HEX_RADIUS, 0)
+        C = Point(c, -s)
+        D = -A
+        E = -B
+        F = -C
+
+        center = self.center
+        return [center + i for i in [A, B, C, D, E, F]]
 
 
 @dataclass
