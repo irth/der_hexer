@@ -2,7 +2,6 @@ import itertools
 import random
 from dataclasses import dataclass
 from math import cos, pi, sin
-from tkinter import W
 from typing import List, Optional, Tuple, Union
 import colorsys
 
@@ -206,7 +205,7 @@ class Map:
             self._line(draw, road.start.center, road.end.center, road_width,
                        road_width, color, supersample, margin)
 
-        resized = im.resize(size.integer_tuple, Image.ANTIALIAS)
+        resized = im.resize(size.integer_tuple, Image.Resampling.LANCZOS)
         return resized
 
     def _circle(self, draw: ImageDraw.Draw, center: Tuple[int, int], radius: int, fill, supersample: int):
