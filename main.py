@@ -3,8 +3,9 @@ from dataclasses import dataclass
 from math import cos, pi, sin
 from tkinter import W
 from typing import List, Optional, Tuple, Union
+import colorsys
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageColor
 
 HEX_RADIUS: float = 50
 
@@ -103,6 +104,7 @@ class Road:
     # be needed.
     start: HexCoords
     end: HexCoords
+    color: int
 
 
 COLORS: List[str] = [
@@ -115,11 +117,18 @@ COLORS: List[str] = [
 ]
 
 
+def darken(color, amount):
+    r, g, b = ImageColor.getrgb(color)
+
+    h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+    return tuple((int(255 * i) for i in colorsys.hsv_to_rgb(h, s, v * (1 - amount))))
+
+
 class Map:
     def __init__(self, rows: int, columns: int, roads: Optional[List[Road]] = None, rivers: Optional[List[River]] = None):
         self.hexes = [[0]*columns for row in range(rows)]
-        self.roads = []
-        self.rivers = []
+        self.roads = roads or []
+        self.rivers = rivers or []
         self.columns = columns
         self.rows = rows
         self.image_size = Point(
@@ -133,7 +142,7 @@ class Map:
     def __setitem__(self, coords: HexCoords, value: int):
         self.hexes[coords.row][coords.column] = value
 
-    def render(self, border=4, margin=10, supersample=4):
+    def render(self, border=4, road_width=8, margin=10, supersample=4):
         margin = Point(margin + border, margin + border)
         size = (2 * margin + self.image_size)
         im = Image.new(
@@ -151,6 +160,31 @@ class Map:
 
                 draw.polygon([(supersample * (margin + p)).tuple for p in coords.polygon],
                              fill=color, outline="black", width=(supersample * border) // 2)
+
+        for road in self.roads:
+            start = (supersample * (margin + road.start.center)).integer_tuple
+            end = (supersample * (margin + road.end.center)).integer_tuple
+
+            color = darken(COLORS[road.color], 0.5)
+
+            draw.line([start, end], fill=color, width=supersample * road_width)
+            draw.ellipse(
+                [
+                    start[0] - supersample * road_width,
+                    start[1] - supersample * road_width,
+                    start[0] + supersample * road_width,
+                    start[1] + supersample * road_width,
+                ],
+                fill=color)
+            draw.ellipse(
+                [
+                    end[0] - supersample * road_width,
+                    end[1] - supersample * road_width,
+                    end[0] + supersample * road_width,
+                    end[1] + supersample * road_width,
+                ],
+                fill=color)
+
         resized = im.resize(size.integer_tuple, Image.ANTIALIAS)
         return resized
 
@@ -162,6 +196,12 @@ if __name__ == '__main__':
         col = random.randrange(0, 10)
         color = random.randrange(len(COLORS) - 1) + 1
         m[HexCoords(row, col)] = color
+
+    road1 = Road(HexCoords(1, 1), HexCoords(2, 1), color=1)
+    m.roads.append(road1)
+    road2 = Road(HexCoords(2, 1), HexCoords(2, 2), color=2)
+    m.roads.append(road2)
+
     image = m.render()
     image.show()
     # or
