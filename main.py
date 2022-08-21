@@ -2,10 +2,11 @@ import itertools
 import random
 from dataclasses import dataclass
 from math import cos, pi, sin
+from tkinter import W
 from typing import List, Optional, Tuple, Union
 import colorsys
 
-from PIL import Image, ImageDraw, ImageColor
+from PIL import Image, ImageDraw, ImageColor, ImageFont
 
 HEX_RADIUS: float = 50
 
@@ -175,7 +176,7 @@ class Map:
     def __setitem__(self, coords: HexCoords, value: int):
         self.hexes[coords.row][coords.column] = value
 
-    def render(self, border=4, road_width=8, river_width=6, margin=10, supersample=4):
+    def render(self, border=4, road_width=8, river_width=6, margin=10, supersample=4, font_size=18, draw_coords=True):
         margin = Point(margin + border, margin + border)
         size = (2 * margin + self.image_size)
         im = Image.new(
@@ -196,7 +197,6 @@ class Map:
 
         for river in self.rivers:
             color = darken(COLORS[river.color], 0.3)
-            print(color)
             self._line(draw, river.points[0], river.points[1],
                        river_width, river_width, color, supersample, margin)
 
@@ -204,6 +204,18 @@ class Map:
             color = darken(COLORS[road.color], 0.5)
             self._line(draw, road.start.center, road.end.center, road_width,
                        road_width, color, supersample, margin)
+
+        if draw_coords:
+            font = ImageFont.truetype(
+                font='DejaVuSans.ttf', size=supersample*font_size)
+            for row in range(self.rows):
+                for column in range(self.columns):
+                    coords = HexCoords(row, column)
+                    center = (supersample * (margin + coords.center)
+                              ).integer_tuple
+
+                    draw.text(center, anchor='mm', text=f'r{row}c{column}',
+                              fill='white', font=font, stroke_fill='black', stroke_width=supersample * max(18, font_size) // 18)
 
         resized = im.resize(size.integer_tuple, Image.Resampling.LANCZOS)
         return resized
@@ -221,7 +233,6 @@ class Map:
     def _line(self, draw: ImageDraw.Draw, start: Point, end: Point, width: int, radius: int, fill, supersample: int, margin: Point):
         start = (supersample * (margin + start)).integer_tuple
         end = (supersample * (margin + end)).integer_tuple
-        print(fill)
         draw.line([start, end], fill=fill, width=supersample * width)
         self._circle(draw, start, radius=radius,
                      fill=fill, supersample=supersample)
